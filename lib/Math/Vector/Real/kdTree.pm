@@ -1,6 +1,6 @@
 package Math::Vector::Real::kdTree;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use 5.010;
 use strict;
@@ -295,6 +295,38 @@ sub _find_nearest_neighbor_all_internal {
     }
 }
 
+sub find_in_ball {
+    my ($self, $z, $d, $but) = @_;
+    $but //= -1;
+    _find_in_ball($self->{vs}, $self->{tree}, $z, $d * $d, $but);
+}
+
+sub _find_in_ball {
+    my ($vs, $t, $z, $d2, $but) = @_;
+    if (defined $t->[0]) {
+        my ($axis, $l, $r, $median) = @$t;
+        my $c = $z->[$axis];
+        my $dc = $c - $median;
+        my ($f, $s) = (($dc < 0) ? ($l, $r) : ($r, $l));
+        if ($dc * $dc <= $d2) {
+            if (wantarray) {
+                return (_find_in_ball($vs, $f, $z, $d2, $but),
+                        _find_in_ball($vs, $s, $z, $d2, $but))
+            }
+            else {
+                return (_find_in_ball($vs, $f, $z, $d2, $but) +
+                        _find_in_ball($vs, $s, $z, $d2, $but));
+            }
+        }
+        else {
+            return _find_in_ball($vs, $f, $z, $d2, $but);
+        }
+    }
+    else {
+        grep { $_ != $but and $vs->[$_]->dist2($z) <= $d2 } @$t[1..$#$t]
+    }
+}
+
 1;
 __END__
 
@@ -334,7 +366,7 @@ Creates a new kdTree containing the gived points.
 
 Inserts the given point into the kdTree.
 
-=item $s = $t->size($ix)
+=item $s = $t->size
 
 Returns the number of points inside the tree.
 
@@ -366,6 +398,19 @@ It is equivalent to (though, internally, it uses a better algorithm):
   @ix = map {
             scalar $t->nearest_neighbor($t->at($_), undef, $_)
         } 0..($t->size - 1);
+
+=item @ix = $t->find_in_ball($z, $d, $but)
+
+=item $n = $t->find_in_ball($z, $d, $but)
+
+Finds the points inside the tree contained in the hypersphere with
+center C<$z> and radius C<$d>.
+
+In scalar context returns the number of points found. In list context
+returns the indexes of the points.
+
+if the extra argument C<$but> provided. The point with that index is
+ignored.
 
 =back
 

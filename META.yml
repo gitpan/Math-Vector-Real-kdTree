@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Math-Vector-Real-kdTree
-version:            0.01
+version:            0.02
 abstract:           kd-Tree implementation on top of Math::Vector::Real
 author:
     - Salvador Fandiño <sfandino@yahoo.com>
@@ -11,7 +11,7 @@ configure_requires:
 build_requires:
     ExtUtils::MakeMaker:  0
 requires:
-    Math::Vector::Real:  0.05
+    Math::Vector::Real:  0.06
     Sort::Key::Top:      0.06
 no_index:
     directory:
