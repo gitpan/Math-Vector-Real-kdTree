@@ -1,6 +1,6 @@
 package Math::Vector::Real::kdTree;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use 5.010;
 use strict;
@@ -19,7 +19,8 @@ sub new {
     my @ix = (0..$#v);
     my $tree = _build(\@v, \@ix);
     my $self = { vs => \@v,
-                 tree => $tree };
+                 tree => $tree,
+                 hidden => '' };
     bless $self, $class;
 }
 
@@ -103,25 +104,35 @@ sub move {
 sub _delete {
     my ($vs, $t, $ix) = @_;
     if (defined $t->[0]) {
-        my ($axis, $l, $r, $median) = @_;
+        my ($axis, $l, $r, $median) = @$t;
+        #print "axis: $axis, ix: $ix\n";
         my $c = $vs->[$ix][$axis];
         if ($c <= $median and _delete($vs, $l, $ix)) {
-            $t->[6]--;
+            #--($t->[6]);
+            @$t = @$r unless --($t->[6]);
             return 1;
         }
         elsif ($c >= $median and _delete($vs, $r, $ix)) {
-            $t->[7]--;
+            #--($t->[7]);
+            @$t = @$l unless --($t->[7]);
             return 1;
         }
+        return 0;
     }
     else {
         my $l = scalar @$t;
-        @$t = grep { not defined $_ or $_ =! $ix } @$t;
+        @$t = grep { not (defined($_) and ($_ == $ix)) } @$t;
         return @$t < $l;
     }
 }
 
-
+sub hide {
+    my ($self, $ix) = @_;
+    my $vs = $self->{vs};
+    ($ix >= 0 and $ix < @$vs) or croak "index out of range";
+    _delete($vs, $self->{tree}, $ix);
+    vec($self->{hidden}, $ix, 1) = 1;
+}
 
 sub _push_all {
     my ($t, $store) = @_;
@@ -205,6 +216,16 @@ sub find_nearest_neighbor {
     if (defined $d) {
         $d2 = $d * $d;
     }
+    elsif (length $self->{hidden}) {
+        my $h = $self->{hidden};
+        $start = 0;
+        while (vec($h, $start, 1) or $start == $but) {
+            return () if $start >= @$vs;
+            $start++;
+        }
+        $d2 = $vs->[$start]->dist2($v);
+        # say "start: $start, d2: $d2";
+    }
     else {
         $start = ($but ? 0 : 1);
         $d2 = $vs->[$start]->dist2($v);
@@ -255,6 +276,12 @@ sub find_nearest_neighbor_all_internal {
     $best[0] = 1;
     $d2[0] = $d2[1];
     _find_nearest_neighbor_all_internal($vs, $self->{tree}, \@best, \@d2);
+    if (length $self->{hidden}) {
+        my $h = $self->{hidden};
+        for (0..$#best) {
+            $best[$_] = undef if vec($h, $_, 1);
+        }
+    }
     return @best;
 }
 
@@ -331,6 +358,27 @@ sub _find_in_ball {
         grep { $_ != $but and $vs->[$_]->dist2($z) <= $d2 } @$t[1..$#$t]
     }
 }
+
+sub ordered_by_proximity {
+    my $self = shift;
+    my @r;
+    $#r = $#{$self->{vs}}; $#r = -1; # preallocate
+    _ordered_by_proximity($self->{tree}, \@r);
+    return @r;
+}
+
+sub _ordered_by_proximity {
+    my $t = shift;
+    my $r = shift;
+    if (defined $t->[0]) {
+        _ordered_by_proximity($t->[1], $r);
+        _ordered_by_proximity($t->[2], $r);
+    }
+    else {
+        push @$r, @{$t}[1..$#$t];
+    }
+}
+
 
 1;
 __END__
@@ -417,6 +465,11 @@ returns the indexes of the points.
 If the extra argument C<$but> is provided. The point with that index
 is ignored.
 
+=item @ix = $t->ordered_by_proximity
+
+Returns the indexes of the points in an ordered where is likely that
+the indexes of near vectors are also in near positions in the list.
+
 =back
 
 =head1 SEE ALSO
@@ -427,7 +480,7 @@ L<Math::Vector::Real>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2011 by Salvador Fandiño E<lt>sfandino@yahoo.comE<gt>
+Copyright (C) 2011, 2012 by Salvador Fandiño E<lt>sfandino@yahoo.comE<gt>
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.12.3 or,

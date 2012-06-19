@@ -6,4 +6,5 @@ t/Math-Vector-Real-kdTree.t
 t/pods.t
 lib/Math/Vector/Real/kdTree.pm
 sample/boxes.pl
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)
