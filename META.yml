@@ -20,4 +20,4 @@ no_index:
 requires:
   Math::Vector::Real: 0.06
   Sort::Key::Top: 0.06
-version: 0.04
+version: 0.05
