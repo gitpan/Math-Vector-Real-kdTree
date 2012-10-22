@@ -1,23 +1,23 @@
----
-abstract: 'kd-Tree implementation on top of Math::Vector::Real'
+--- #YAML:1.0
+name:               Math-Vector-Real-kdTree
+version:            0.06
+abstract:           kd-Tree implementation on top of Math::Vector::Real
 author:
-  - 'Salvador Fandiño <sfandino@yahoo.com>'
-build_requires:
-  ExtUtils::MakeMaker: 0
+    - Salvador Fandiño <sfandino@yahoo.com>
+license:            unknown
+distribution_type:  module
 configure_requires:
-  ExtUtils::MakeMaker: 0
-dynamic_config: 1
-generated_by: 'ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.112150'
-license: unknown
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
-name: Math-Vector-Real-kdTree
-no_index:
-  directory:
-    - t
-    - inc
+    ExtUtils::MakeMaker:  0
+build_requires:
+    ExtUtils::MakeMaker:  0
 requires:
-  Math::Vector::Real: 0.06
-  Sort::Key::Top: 0.06
-version: 0.05
+    Math::Vector::Real:  0.06
+    Sort::Key::Top:      0.06
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.57_05
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4
