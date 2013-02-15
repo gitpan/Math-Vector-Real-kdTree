@@ -1,6 +1,6 @@
 package Math::Vector::Real::kdTree;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 use 5.010;
 use strict;
@@ -70,28 +70,33 @@ sub insert {
     $ix;
 }
 
+# _insert does not return anything but modifies its $t argument in
+# place. This is really ugly, done to improve performance.
+
 sub _insert {
     my ($vs, $t, $ix) = @_;
     if (defined $t->[0]) {
-        my ($axis, $l, $r, $median, $min, $max, $nl, $nr) = @$t;
+        my ($axis, undef, undef, $median, $min, $max, $nl, $nr) = @$t;
         my $c = $vs->[$ix][$axis];
         my $pole;
         if ($c < $median) {
             if (2 * $nr + $max_per_pole >= $nl) {
                 $t->[6]++;
                 $t->[4] = $c if $c < $min;
-                return _insert($vs, $l, $ix);
+                _insert($vs, $t->[1], $ix);
+                return;
             }
         }
         else {
             if (2 * $nl + $max_per_pole >= $nr) {
                 $t->[7]++;
                 $t->[5] = $c if $c > $max;
-                return _insert($vs, $r, $ix);
+                _insert($vs, $t->[2], $ix);
+                return;
             }
         }
         my @store;
-        $#store = $nl + $nr;
+        $#store = $nl + $nr; # preallocate space
         @store = ($ix);
         _push_all($t, \@store);
         $_[1] = _build($vs, \@store);
@@ -100,7 +105,8 @@ sub _insert {
         push @$t, $ix;
     }
     else {
-        $_[1] = _build($vs, [$ix, @$t[1..$#$t]])
+        $t->[0] = $ix;
+        $_[1] = _build($vs, $t);
     }
 }
 
@@ -108,10 +114,9 @@ sub move {
     my ($self, $ix, $v) = @_;
     my $vs = $self->{vs};
     ($ix >= 0 and $ix < @$vs) or croak "index out of range";
-    my $t = $self->{tree};
-    _delete($vs, $t, $ix);
+    _delete($vs, $self->{tree}, $ix);
     $vs->[$ix] = Math::Vector::Real::clone($v);
-    _insert($vs, $t, $ix);
+    _insert($vs, $self->{tree}, $ix);
 }
 
 sub _delete {
@@ -501,7 +506,7 @@ L<Math::Vector::Real>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2011, 2012 by Salvador Fandiño E<lt>sfandino@yahoo.comE<gt>
+Copyright (C) 2011-2013 by Salvador FandiE<ntilde>o E<lt>sfandino@yahoo.comE<gt>
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.12.3 or,
