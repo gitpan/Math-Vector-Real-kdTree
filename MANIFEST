@@ -4,6 +4,7 @@ MANIFEST
 README
 t/Math-Vector-Real-kdTree.t
 t/pods.t
+t/count.t
 lib/Math/Vector/Real/kdTree.pm
 sample/boxes.pl
 META.yml                                 Module YAML meta-data (added by MakeMaker)
