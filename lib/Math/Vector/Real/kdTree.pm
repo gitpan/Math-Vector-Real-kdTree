@@ -1,6 +1,6 @@
 package Math::Vector::Real::kdTree;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use 5.010;
 use strict;
@@ -18,9 +18,8 @@ sub new {
     my @v = map Math::Vector::Real::clone($_), @_;
     my @ix = (0..$#v);
     my $tree = _build(\@v, \@ix);
-    my $self = { vs     => \@v,
-                 tree   => $tree,
-                 hidden => '' };
+    my $self = { vs   => \@v,
+                 tree => $tree };
     bless $self, $class;
 }
 
@@ -28,8 +27,8 @@ sub clone {
     my $self = shift;
     require Storable;
     my $clone = { vs     => [@{$self->{vs}}],
-                  tree   => Storable::dclone($self->{tree}),
-                  hidden => $self->{hidden} };
+                  tree   => Storable::dclone($self->{tree}) };
+    $clone->{hidden} = { %{$self->{hidden}} } if $self->{hidden};
     bless $clone, ref $self;
 }
 
@@ -149,7 +148,7 @@ sub hide {
     my $vs = $self->{vs};
     ($ix >= 0 and $ix < @$vs) or croak "index out of range";
     _delete($vs, $self->{tree}, $ix);
-    vec($self->{hidden}, $ix, 1) = 1;
+    ($self->{hidden} //= {})->{$ix} = 1;
 }
 
 sub _push_all {
@@ -220,35 +219,34 @@ sub _find {
 }
 
 sub find_nearest_neighbor {
-    my ($self, $v, $d, $but) = @_;
+    my ($self, $v, $d, @but) = @_;
     my $vs = $self->{vs};
-    $but //= -1;
-    if ($but >= 0) {
-        $but >= @$vs and croak "index out of range";
-        return if @$vs < 2;
+    my $but;
+    if (@but) {
+        if (@but == 1 and ref $but[0] eq 'HASH') {
+            $but = $but[0];
+        }
+        else {
+            my %but = map { $_ => 1 } @but;
+            $but = \%but;
+        }
     }
-    else {
-        return if @$vs < 1;
-    }
+
     my ($start, $d2);
     if (defined $d) {
         $d2 = $d * $d;
     }
-    elsif (length $self->{hidden}) {
-        my $h = $self->{hidden};
-        $start = 0;
-        while (vec($h, $start, 1) or $start == $but) {
-            return () if $start >= @$vs;
-            $start++;
+    else {
+        my $hidden = $self->{hidden};
+        for ($start = 0;
+             $start < @$vs or return;
+             $start++) {
+            last unless ( ( $hidden and $hidden->{$start} ) or
+                          ( $but    and $but->{$start}    ) );
         }
         $d2 = $vs->[$start]->dist2($v);
-        # say "start: $start, d2: $d2";
     }
-    else {
-        $start = ($but ? 0 : 1);
-        $d2 = $vs->[$start]->dist2($v);
-    }
-    my ($rix, $rd2) = _find_nearest_neighbor($self->{vs}, $self->{tree}, $v, $start, $d2, $but);
+    my ($rix, $rd2) = _find_nearest_neighbor($vs, $self->{tree}, $v, $start, $d2, $but);
     $rix // return;
     wantarray ? ($rix, sqrt($rd2)) : $rix;
 }
@@ -272,9 +270,10 @@ sub _find_nearest_neighbor {
         }
         else {
             for (@$t[1..$#$t]) {
+                next if $but and $but->{$_};
                 my $p = $vs->[$_];
                 my $d21 = $p->dist2($v);
-                if ($d21 < $d2 and $_ != $but) {
+                if ($d21 < $d2) {
                     $d2 = $d21;
                     $ix = $_;
                 }
@@ -294,11 +293,8 @@ sub find_nearest_neighbor_all_internal {
     $best[0] = 1;
     $d2[0] = $d2[1];
     _find_nearest_neighbor_all_internal($vs, $self->{tree}, \@best, \@d2);
-    if (length $self->{hidden}) {
-        my $h = $self->{hidden};
-        for (0..$#best) {
-            $best[$_] = undef if vec($h, $_, 1);
-        }
+    if ($self->{hidden}) {
+        $best[$_] = undef for keys %{$self->{hidden}};
     }
     return @best;
 }
@@ -318,7 +314,7 @@ sub _find_nearest_neighbor_all_internal {
                     my $md = $v->[$axis] - $median;
                     if ($d2->[$ix] > $md * $md) {
                         ($best->[$ix], $d2->[$ix]) =
-                            _find_nearest_neighbor($vs, $other, $v, $best->[$ix], $d2->[$ix], -1);
+                            _find_nearest_neighbor($vs, $other, $v, $best->[$ix], $d2->[$ix]);
                     }
                 }
             }
@@ -347,7 +343,6 @@ sub _find_nearest_neighbor_all_internal {
 
 sub find_in_ball {
     my ($self, $z, $d, $but) = @_;
-    $but //= -1;
     _find_in_ball($self->{vs}, $self->{tree}, $z, $d * $d, $but);
 }
 
@@ -372,8 +367,11 @@ sub _find_in_ball {
             return _find_in_ball($vs, $f, $z, $d2, $but);
         }
     }
+    elsif ($but) {
+        return grep { !$but->{$_} and $vs->[$_]->dist2($z) <= $d2 } @$t[1..$#$t]
+    }
     else {
-        grep { $_ != $but and $vs->[$_]->dist2($z) <= $d2 } @$t[1..$#$t]
+        return grep { $vs->[$_]->dist2($z) <= $d2 } @$t[1..$#$t]
     }
 }
 
@@ -431,7 +429,7 @@ The following methods are provided:
 
 =item $t = Math::Vector::Real::kdTree->new(@points)
 
-Creates a new kdTree containing the gived points.
+Creates a new kd-Tree containing the given points.
 
 =item $t2 = $t->clone
 
@@ -441,7 +439,7 @@ usage than others performing a deep copy.
 
 =item my $ix = $t->insert($p0, $p1, ...)
 
-Inserts the given points into the kdTree.
+Inserts the given points into the kd-Tree.
 
 Returns the index assigned to the first point inserted.
 
@@ -458,7 +456,9 @@ Returns the point at the given index inside the tree.
 Moves the point at index C<$ix> to the new given position readjusting
 the tree structure accordingly.
 
-=item ($ix, $d) = $t->find_nearest_neighbor($p, $max_d, $but_ix)
+=item ($ix, $d) = $t->find_nearest_neighbor($p, $max_d, @but_ix)
+
+=item ($ix, $d) = $t->find_nearest_neighbor($p, $max_d, \%but_ix)
 
 Find the nearest neighbor for the given point C<$p> and returns its
 index and the distance between the two points (in scalar context the
@@ -466,7 +466,9 @@ index is returned).
 
 If C<$max_d> is defined, the search is limited to the points within that distance
 
-If C<$but_ix> is defined, the point with the given index is not considered.
+Optionally, a list of point indexes to be excluded from the search can be
+passed or, alternatively, a reference to a hash containing the indexes
+of the points to be excluded.
 
 =item @ix = $t->find_nearest_neighbor_all_internal
 
