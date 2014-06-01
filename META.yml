@@ -18,6 +18,6 @@ no_index:
     - t
     - inc
 requires:
-  Math::Vector::Real: 0.06
-  Sort::Key::Top: 0.06
-version: 0.09
+  Math::Vector::Real: 0.14
+  Sort::Key::Top: 0.08
+version: 0.10

@@ -32,11 +32,11 @@
       },
       "runtime" : {
          "requires" : {
-            "Math::Vector::Real" : "0.06",
-            "Sort::Key::Top" : "0.06"
+            "Math::Vector::Real" : "0.14",
+            "Sort::Key::Top" : "0.08"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "0.09"
+   "version" : "0.10"
 }
